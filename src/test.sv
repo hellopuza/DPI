@@ -48,8 +48,16 @@ begin
     rst = 0;
 end
 
+function bit is_nan(int a);
+    return (a[30:23] == 'hFF) & (a[22:0] != 0);
+endfunction
+
+function bit not_eq(int a, int b);
+    return (is_nan(a) & is_nan(b)) ? 0 : (a != b);
+endfunction
+
 task test_input();
-    $display("Process %d %d", arg0, arg1);
+    $display("Process %x %x", arg0, arg1);
 
     real_res = mul_real(arg0, arg1);
 
@@ -58,9 +66,9 @@ task test_input();
 
     @(posedge res_stb)
 
-    if (real_res != res)
+    if (not_eq(real_res, res))
     begin
-        $display("%d != %d", real_res, res);
+        $display("%x != %x", real_res, res);
         $fatal(1, "Test failed!");
     end
     res_ack = 1;
@@ -69,9 +77,9 @@ endtask
 
 initial
 begin
-    if ($value$plusargs("arg0=%d", arg0))
+    if ($value$plusargs("arg0=%x", arg0))
     begin
-        $value$plusargs("arg1=%d", arg1);
+        $value$plusargs("arg1=%x", arg1);
         test_input();
     end
     else if ($value$plusargs("file=%s", filename))
@@ -79,7 +87,7 @@ begin
         file = $fopen(filename, "r");
         while ($fgets(line, file))
         begin
-            $sscanf(line, "%d %d", arg0, arg1);
+            $sscanf(line, "%x %x", arg0, arg1);
             test_input();
         end
     end
