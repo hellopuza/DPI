@@ -41,12 +41,11 @@ begin
     forever #1 clk = ~clk;
 end
 
-initial
-begin
+task reset();
     rst = 0; @(negedge clk)
     rst = 1; @(negedge clk)
     rst = 0;
-end
+endtask
 
 function bit is_nan(int a);
     return (a[30:23] == 'hFF) & (a[22:0] != 0);
@@ -57,23 +56,48 @@ function bit not_eq(int a, int b);
 endfunction
 
 task test_input();
+    reset();
     $display("Process %x %x", arg0, arg1);
 
     real_res = mul_real(arg0, arg1);
 
+    res_ack = 0;
+    dut_running = 1;
     stb0 = 1; @(posedge ack0)
     stb1 = 1; @(posedge ack1)
 
     @(posedge res_stb)
+    dut_running = 0; @(posedge clk)
 
     if (not_eq(real_res, res))
     begin
         $display("%x != %x", real_res, res);
         $fatal(1, "Test failed!");
     end
-    res_ack = 1;
-    stb0 = 0; stb1 = 0;
 endtask
+
+reg dut_running;
+int timer;
+parameter TIMEOUT=1000;
+
+always @(posedge clk)
+begin
+    if (dut_running)
+        timer <= timer + 1;
+    else
+        timer <= 0;
+    if (rst)
+    begin
+        stb0 <= 0;
+        stb1 <= 0;
+    end
+
+    if (timer == TIMEOUT)
+    begin
+        $display("Timeout! DUT has been running too long.");
+        $finish;
+    end
+end
 
 initial
 begin
